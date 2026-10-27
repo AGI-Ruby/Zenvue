@@ -3,7 +3,7 @@
 	"extraMetadata": {
 		"name": "zenvue",
 		"productName": "Zenvue",
-		"version": "1.4.0-zenvue.1"
+		"version": "1.4.1"
 	},
 	"npmRebuild": false,
 	"win": {
@@ -15,5 +15,16 @@
 	},
 	"extends": "./electron-builder.json5",
 	"publish": null,
-	"appId": "local.zenvue.desktop"
+	"appId": "local.zenvue.desktop",
+	"extraFiles": [
+		"README.md",
+		"LICENSE",
+		"LICENSE.md",
+		"NOTICE.md",
+		"THIRD_PARTY_NOTICES.md",
+		{
+			"from": "licenses",
+			"to": "licenses"
+		}
+	]
 }

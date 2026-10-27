@@ -13,7 +13,7 @@
 		"url": "https://github.com/alienzhang23/Zenvue/issues"
 	},
 	"private": true,
-	"version": "1.4.0-zenvue.1",
+	"version": "1.4.1",
 	"type": "module",
 	"scripts": {
 		"dev": "vite --config vite.config.ts --mode enhanced",

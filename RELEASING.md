@@ -26,4 +26,10 @@ Generated native helpers, build caches and packaged executables are excluded fro
 - Test recording, source selection, pause/resume, stopping, cursor/typing zoom, microphone/webcam sync, project reopening and export. No new end-to-end recording acceptance was performed as part of repository preparation.
 - Sign releases using your own credentials if appropriate. Do not reuse upstream signing credentials or publish upstream update metadata.
 
-This repository setup uploads source only; it does not publish installers, model files or a release.
+## Release artifacts
+
+GitHub Releases now distribute a Windows x64 ZIP bundle, a source ZIP for the exact version tag, and SHA256SUMS.txt. Include README.md, LICENSE, LICENSE.md, NOTICE.md and THIRD_PARTY_NOTICES.md alongside the executable. The default README is Chinese; README.en.md is the English reference. Models are not included.
+
+Update package.json, the root package entries in package-lock.json, and enhanced-builder.json together when changing a version. Build and check the package, commit the corresponding sources, push the version tag, upload artifacts to a draft release, and publish only after verifying all uploads. Do not change repository visibility as part of a release.
+
+For this local workspace, update the desktop entry after each package with scripts/update-desktop-shortcut.ps1 -AppPath <absolute path to Zenvue.exe>. This changes the shortcut only; exit an already running old version before using the new entry.
