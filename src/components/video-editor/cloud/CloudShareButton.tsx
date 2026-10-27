@@ -20,7 +20,7 @@ import {
 import { Export, LinkSimple } from "@phosphor-icons/react";
 import { Label } from "@/components/ui/label";
 
-import { CLOUD_SHARE_ENDPOINT as DEFAULT_CLOUD_ENDPOINT } from "./endpoint";
+import { CLOUD_SHARE_ENDPOINT as DEFAULT_CLOUD_ENDPOINT, CLOUD_SHARING_ENABLED } from "./endpoint";
 
 type Props = {
 	projectPath?: string | null;
@@ -172,8 +172,7 @@ export function CloudShareButton({
 		setError(undefined);
 		setShareUrl(undefined);
 		try {
-			if (!DEFAULT_CLOUD_ENDPOINT)
-				throw new Error("此版本暂不支持云端分享。");
+			if (!DEFAULT_CLOUD_ENDPOINT) throw new Error("此版本暂不支持云端分享。");
 			if (!authToken) throw new Error(t("editor.cloud.signInRequired"));
 			const available = await checkShareCapacity(DEFAULT_CLOUD_ENDPOINT, authToken);
 			if (!isCurrentAccount()) return;
@@ -324,6 +323,7 @@ export function CloudShareButton({
 			)}
 		</>
 	);
+	if (!CLOUD_SHARING_ENABLED) return null;
 	if (inline) return <div>{form}</div>;
 
 	return (

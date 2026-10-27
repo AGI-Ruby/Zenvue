@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { resolvePublishDestination } from "../cloud/endpoint";
 import type {
 	ExportBackendPreference,
 	ExportEncodingMode,
@@ -23,7 +24,9 @@ export function useExportSettings(
 	const [includeCaptionSidecar, setIncludeCaptionSidecar] = useState(
 		preferences.includeCaptionSidecar,
 	);
-	const [publishDestination, setPublishDestination] = useState(preferences.publishDestination);
+	const [publishDestination, setPublishDestination] = useState(() =>
+		resolvePublishDestination(preferences.publishDestination),
+	);
 	const [exportQuality, setExportQuality] = useState<ExportQuality>(preferences.exportQuality);
 	const [exportEncodingMode, setExportEncodingMode] = useState<ExportEncodingMode>(
 		preferences.exportEncodingMode,

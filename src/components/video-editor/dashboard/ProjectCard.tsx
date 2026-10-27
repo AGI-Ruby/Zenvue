@@ -1,3 +1,4 @@
+import { CLOUD_SHARING_ENABLED } from "../cloud/endpoint";
 import { Globe } from "@phosphor-icons/react";
 import { ProjectFolderChips } from "./ProjectFolderChips";
 import { RawThumbnail } from "./RawRecordings";
@@ -244,11 +245,7 @@ export function ProjectCard({
 								isDisabled={Boolean(webUrl) && !webReady}
 								onAction={() => openEntry(entry)}
 							>
-								{webUrl
-									? "打开链接"
-									: entry.rawSource
-										? "预览文件"
-										: "打开项目"}
+								{webUrl ? "打开链接" : entry.rawSource ? "预览文件" : "打开项目"}
 							</Dropdown.Item>
 							{!webUrl && (
 								<>
@@ -263,7 +260,7 @@ export function ProjectCard({
 									>
 										重命名
 									</Dropdown.Item>
-									{!entry.rawSource && (
+									{!entry.rawSource && (CLOUD_SHARING_ENABLED || shareUrl) && (
 										<Dropdown.Item
 											id="share"
 											onAction={() =>

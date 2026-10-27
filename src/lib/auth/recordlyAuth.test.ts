@@ -33,6 +33,7 @@ beforeEach(() => {
 	signOut.mockClear();
 	vi.stubEnv("VITE_SUPABASE_URL", "https://auth.example.test");
 	vi.stubEnv("VITE_SUPABASE_PUBLISHABLE_KEY", "test-key");
+	vi.stubEnv("VITE_ZENVUE_ACCOUNTS_ENABLED", "1");
 });
 
 it("sends former demo credentials to Supabase even during development", async () => {
@@ -157,6 +158,6 @@ it("does not accept dashboard implicit session tokens as a PKCE callback", async
 	const { completeAuthCallback } = await import("./recordlyAuth");
 	await expect(
 		completeAuthCallback("recordly://auth/callback#access_token=test&refresh_token=test"),
-	).rejects.toThrow("Request a new sign-in link from Recordly");
+	).rejects.toThrow("Request a new sign-in link from Zenvue");
 	expect(exchange).not.toHaveBeenCalled();
 });

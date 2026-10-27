@@ -4,6 +4,8 @@ Zenvue 是基于 Recordly 修改的独立本地录屏与演示编辑器，采用
 
 由 [alienzhang23](https://github.com/alienzhang23) 独立维护。仓库：[alienzhang23/Zenvue](https://github.com/alienzhang23/Zenvue)。问题反馈请提交到本仓库的 Issues。
 
+当前免费版默认免登录使用本地录制与编辑，隐藏尚未上线的登录、账户设置和云端分享入口；反馈按钮打开 GitHub Issues。认证代码保留供以后接入自有服务，默认不创建认证客户端。未来启用账户需要显式设置 `VITE_ZENVUE_ACCOUNTS_ENABLED=1` 并完成自己的后台与回调部署；本地构建不因此强制登录。
+
 源码目录：`E:\workspace\Zenvue`。开发与打包说明见 [README](README.md)。
 
 已保留区域录制、打字自动缩放、Esc 停止并保存和浮窗退出保护。`.recordly` 文件格式和旧设置键继续兼容。已有增强版资料目录会在 Windows 上继续复用，不读取原版 Recordly 的资料目录。

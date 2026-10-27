@@ -1,4 +1,5 @@
 import { OnboardingController } from "@/components/auth/OnboardingController";
+import { ACCOUNT_FEATURES_ENABLED } from "@/lib/auth/accountFeatures";
 import { AccountProfileContext } from "@/components/ui/account-avatar";
 import { DashboardSettingsContext } from "../dashboard/DashboardSettings";
 import { RecordlySignInDialog, type SignInReason } from "@/components/auth/RecordlySignInDialog";
@@ -65,6 +66,7 @@ export function EditorShell(props: Props) {
 	const [shareRequestNonce, setShareRequestNonce] = useState(0);
 	const auth = useRecordlyAuth();
 	const requestSignIn = (reason: SignInReason) => {
+		if (!ACCOUNT_FEATURES_ENABLED) return;
 		if (reason === "share" && auth.user) {
 			setShareRequestNonce((value) => value + 1);
 			return;

@@ -1,5 +1,12 @@
 # Zenvue changes
 
+## Unreleased
+
+- Hide unavailable sign-in, account settings and cloud-sharing controls by default.
+- Keep the local build's recording path independent of optional cloud accounts.
+- Restore saved cloud-export choices to local export when sharing is unavailable.
+- Route feedback to the Zenvue GitHub Issues page without an application login.
+
 ## 1.4.0-zenvue.1 — derivative snapshot, 2026-10-27
 
 - Establish independent Zenvue branding and retain Recordly / OpenScreen attribution.

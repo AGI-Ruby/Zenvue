@@ -2,6 +2,7 @@ import { ExportErrorReportButton } from "@/components/feedback/ExportErrorReport
 import { LinkSimple, HardDrive, Export } from "@phosphor-icons/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CloudShareButton } from "../cloud/CloudShareButton";
+import { CLOUD_SHARING_ENABLED, resolvePublishDestination } from "../cloud/endpoint";
 import { Card, TagGroup, Tag } from "@heroui/react";
 import { motion, useReducedMotion } from "motion/react";
 import { ProgressBar } from "@heroui/react";
@@ -43,8 +44,9 @@ type Props = {
 };
 
 export function EditorExportMenu(props: Props) {
-	const { publishDestination: destination, setPublishDestination: setDestination } =
+	const { publishDestination: storedDestination, setPublishDestination: setDestination } =
 		props.exportSettings;
+	const destination = resolvePublishDestination(storedDestination);
 	const [shareBusy, setShareBusy] = useState(false);
 	const reducedMotion = useReducedMotion();
 	const handledShareRequest = useRef(0);
@@ -63,7 +65,7 @@ export function EditorExportMenu(props: Props) {
 		return () => observer.disconnect();
 	}, [props.exportSession.showExportDropdown]);
 	useEffect(() => {
-		if (props.shareRequestNonce > handledShareRequest.current) {
+		if (CLOUD_SHARING_ENABLED && props.shareRequestNonce > handledShareRequest.current) {
 			handledShareRequest.current = props.shareRequestNonce;
 			setDestination("link");
 			props.handleOpenExportDropdown();
@@ -201,7 +203,9 @@ export function EditorExportMenu(props: Props) {
 					>
 						<div ref={contentRef}>
 							<div className="p-5 space-y-3">
-								<h2 className="text-sm font-semibold">导出与分享</h2>
+								<h2 className="text-sm font-semibold">
+									{CLOUD_SHARING_ENABLED ? "导出与分享" : "导出视频"}
+								</h2>
 								<TagGroup
 									aria-label="导出目的地"
 									selectionMode="single"
@@ -218,14 +222,16 @@ export function EditorExportMenu(props: Props) {
 									}}
 								>
 									<TagGroup.List className="flex gap-2">
-										<Tag
-											id="link"
-											isDisabled={isExporting || shareBusy}
-											className="h-24 flex-1 flex-col justify-center gap-2 rounded-xl border border-foreground/10"
-										>
-											<LinkSimple className="size-6" />
-											分享链接
-										</Tag>
+										{CLOUD_SHARING_ENABLED && (
+											<Tag
+												id="link"
+												isDisabled={isExporting || shareBusy}
+												className="h-24 flex-1 flex-col justify-center gap-2 rounded-xl border border-foreground/10"
+											>
+												<LinkSimple className="size-6" />
+												分享链接
+											</Tag>
+										)}
 										<Tag
 											id="local"
 											isDisabled={isExporting || shareBusy}

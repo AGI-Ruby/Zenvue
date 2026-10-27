@@ -1,4 +1,6 @@
 import { BrandAttribution } from "@/components/BrandAttribution";
+import { ACCOUNT_FEATURES_ENABLED } from "@/lib/auth/accountFeatures";
+import { CLOUD_SHARING_ENABLED } from "../cloud/endpoint";
 import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
 import { RecordNewButton } from "./RecordNewButton";
 import { SidebarCards } from "./SidebarCards";
@@ -63,18 +65,20 @@ export function DashboardSidebar({
 						<House weight="fill" className="size-[18px]" />
 						主页
 					</Button>
-					<Button
-						variant="ghost"
-						className={navClass(section === "shared")}
-						aria-current={section === "shared" ? "page" : undefined}
-						onClick={() => setSection("shared")}
-					>
-						<Cloud
-							weight={section === "shared" ? "fill" : "regular"}
-							className="size-[18px]"
-						/>
-						已分享
-					</Button>
+					{CLOUD_SHARING_ENABLED && (
+						<Button
+							variant="ghost"
+							className={navClass(section === "shared")}
+							aria-current={section === "shared" ? "page" : undefined}
+							onClick={() => setSection("shared")}
+						>
+							<Cloud
+								weight={section === "shared" ? "fill" : "regular"}
+								className="size-[18px]"
+							/>
+							已分享
+						</Button>
+					)}
 					<Button
 						variant="ghost"
 						className={navClass(section === "raw")}
@@ -150,10 +154,12 @@ export function DashboardSidebar({
 						/>
 						设置
 					</Button>
-					<Button variant="ghost" className={navClass(false)} onClick={onSignIn}>
-						<UserCircle weight="fill" className="size-[18px] shrink-0" />
-						<span className="truncate">{accountLabel || "登录"}</span>
-					</Button>
+					{ACCOUNT_FEATURES_ENABLED && (
+						<Button variant="ghost" className={navClass(false)} onClick={onSignIn}>
+							<UserCircle weight="fill" className="size-[18px] shrink-0" />
+							<span className="truncate">{accountLabel || "登录"}</span>
+						</Button>
+					)}
 				</div>
 				<BrandAttribution />
 			</aside>

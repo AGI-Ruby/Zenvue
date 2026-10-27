@@ -1,4 +1,5 @@
 import { AccountAvatar } from "@/components/ui/account-avatar";
+import { ACCOUNT_FEATURES_ENABLED } from "@/lib/auth/accountFeatures";
 import type { User } from "@supabase/supabase-js";
 import { Camera, ClosedCaptioning, Cursor, Gear, FrameCorners } from "@/components/ui/icons";
 import {
@@ -104,18 +105,20 @@ export function EditorSidebar({
 						</Tooltip>
 					))}
 				</ToggleButtonGroup>
-				<Tooltip>
-					<Button
-						variant="ghost"
-						isIconOnly
-						className="mt-auto"
-						aria-label="Zenvue 账户"
-						onPress={onAccountClick}
-					>
-						<AccountAvatar user={accountUser} className="!size-7" />
-					</Button>
-					<Tooltip.Content placement="right">账户</Tooltip.Content>
-				</Tooltip>
+				{ACCOUNT_FEATURES_ENABLED && (
+					<Tooltip>
+						<Button
+							variant="ghost"
+							isIconOnly
+							className="mt-auto"
+							aria-label="Zenvue 账户"
+							onPress={onAccountClick}
+						>
+							<AccountAvatar user={accountUser} className="!size-7" />
+						</Button>
+						<Tooltip.Content placement="right">账户</Tooltip.Content>
+					</Tooltip>
+				)}
 			</nav>
 			<aside
 				aria-label={panelContent ? "素材库" : undefined}

@@ -22,6 +22,10 @@ Use Node.js 22 or later and npm. On Windows, native builds require Visual Studio
 
 The approved design and transparent master are in `branding/`. `scripts/generate-brand-icons.py` exports the PNG, Windows ICO and macOS ICNS assets using Pillow. This is format conversion and resizing of the approved master; it does not redraw the logo.
 
+## Optional accounts
+
+The default free build works without a Zenvue account. Sign-in, account settings and unavailable cloud-sharing controls are hidden; feedback opens this repository's Issues page. Authentication code is retained for future service integration. Cloud accounts require explicit `VITE_ZENVUE_ACCOUNTS_ENABLED=1` plus your own Supabase configuration; cloud sharing also needs a deployed endpoint. Production OAuth callbacks and backend deployment must be completed before enabling this option. The local build continues to record offline even when optional cloud configuration is present.
+
 ## Compatibility
 
 The `.recordly` project format and `recordly.*` preference keys are retained for compatibility. Existing recordings remain in the previous enhanced-build profile. Zenvue reuses that profile on Windows if it exists; the original installed Recordly profile is not used. Upstream auto-updates and protocol registration remain disabled in this local fork.

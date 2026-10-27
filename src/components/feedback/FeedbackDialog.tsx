@@ -1,4 +1,6 @@
 import { useRef, useState } from "react";
+import { ACCOUNT_FEATURES_ENABLED } from "@/lib/auth/accountFeatures";
+import { toast } from "@/components/ui/toast";
 import { Button, Description, Form, Input, Label, TextArea, TextField } from "@heroui/react";
 import { useRecordlyAuth } from "@/components/auth/useRecordlyAuth";
 import {
@@ -35,6 +37,27 @@ export function FeedbackDialog({
 	const [sent, setSent] = useState(false);
 	const sendingRef = useRef(false);
 	const picker = useRef<HTMLInputElement>(null);
+	if (!ACCOUNT_FEATURES_ENABLED) {
+		return (
+			<Button
+				variant="ghost"
+				size="sm"
+				className={className}
+				aria-label="反馈"
+				onPress={() => {
+					void window.electronAPI
+						.openExternalUrl("https://github.com/alienzhang23/Zenvue/issues")
+						.then((result) => {
+							if (!result.success) toast.error("无法打开反馈页面");
+						})
+						.catch(() => toast.error("无法打开反馈页面"));
+				}}
+			>
+				<ChatDots className="size-4" />
+				{showLabel && "反馈"}
+			</Button>
+		);
+	}
 	function addFiles(incoming: File[]) {
 		const next = [...files, ...incoming];
 		const issue = validateAttachments(next);
@@ -203,9 +226,7 @@ export function FeedbackDialog({
 								))}
 							</div>
 						)}
-						<Description className="text-xs">
-							诊断信息将随反馈一起发送。
-						</Description>
+						<Description className="text-xs">诊断信息将随反馈一起发送。</Description>
 						{error && (
 							<Description role="alert" className="text-danger">
 								{error}

@@ -1,4 +1,5 @@
 import { SettingsSections, SettingsCategory } from "../SettingsSections";
+import { ACCOUNT_FEATURES_ENABLED } from "@/lib/auth/accountFeatures";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { SettingsRow } from "../SettingsRow";
 import { Switch } from "@/components/ui/switch";
@@ -47,7 +48,7 @@ export function DashboardSettings({ onImportFile }: { onImportFile: () => Promis
 			<SettingsSections
 				categories={[
 					"general",
-					"account",
+					...(ACCOUNT_FEATURES_ENABLED ? ["account" as const] : []),
 					"permissions",
 					"motion",
 					"recording",

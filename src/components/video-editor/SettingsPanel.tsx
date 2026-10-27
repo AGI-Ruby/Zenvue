@@ -1,5 +1,6 @@
 import type { User } from "@supabase/supabase-js";
 import { AccountSettings } from "@/components/auth/AccountSettings";
+import { ACCOUNT_FEATURES_ENABLED } from "@/lib/auth/accountFeatures";
 import { RecordingPermissionsSettings } from "@/components/auth/RecordingPermissionsSettings";
 import { SettingsSections, SettingsCategory } from "./SettingsSections";
 import { Card, RadioGroup, Radio, Label, Description } from "@heroui/react";
@@ -2257,8 +2258,19 @@ export function SettingsPanel({
 			<SettingsSections
 				categories={
 					advanced
-						? ["general", "account", "permissions", "motion", "advanced"]
-						: ["general", "account", "permissions", "motion"]
+						? [
+								"general",
+								...(ACCOUNT_FEATURES_ENABLED ? ["account" as const] : []),
+								"permissions",
+								"motion",
+								"advanced",
+							]
+						: [
+								"general",
+								...(ACCOUNT_FEATURES_ENABLED ? ["account" as const] : []),
+								"permissions",
+								"motion",
+							]
 				}
 			>
 				<SettingsCategory category="account">
@@ -2447,10 +2459,7 @@ export function SettingsPanel({
 										onClick={() => onOpenNativeCaptureUnavailableModal?.()}
 										className="h-8 shrink-0"
 									>
-										{tSettings(
-											"effects.openNativeCaptureWarning",
-											"查看警告",
-										)}
+										{tSettings("effects.openNativeCaptureWarning", "查看警告")}
 									</Button>
 								</div>
 							</div>
@@ -3013,9 +3022,7 @@ export function SettingsPanel({
 				return (
 					<section className="flex flex-col gap-4">
 						<div className="flex items-center justify-between gap-3">
-							<SectionLabel>
-								{tSettings("sections.appearance", "外观")}
-							</SectionLabel>
+							<SectionLabel>{tSettings("sections.appearance", "外观")}</SectionLabel>
 							<Button
 								variant="ghost"
 								size="sm"

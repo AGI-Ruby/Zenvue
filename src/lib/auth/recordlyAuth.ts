@@ -1,4 +1,5 @@
 import { createClient, type Provider, type User } from "@supabase/supabase-js";
+import { ACCOUNT_FEATURES_ENABLED } from "./accountFeatures";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
@@ -13,7 +14,7 @@ export type RecordlyOAuthProvider = "google" | "azure" | "github";
 export async function getEnabledSignInProviders(
 	signal?: AbortSignal,
 ): Promise<RecordlyOAuthProvider[]> {
-	if (!recordlyAuthConfigured) return [];
+	if (!ACCOUNT_FEATURES_ENABLED) return [];
 	const response = await fetch(`${supabaseUrl}/auth/v1/settings`, {
 		headers: { apikey: supabasePublishableKey! },
 		signal,
@@ -25,7 +26,7 @@ export async function getEnabledSignInProviders(
 	);
 }
 
-export const recordlyAuth = recordlyAuthConfigured
+export const recordlyAuth = ACCOUNT_FEATURES_ENABLED
 	? createClient(supabaseUrl!, supabasePublishableKey!, {
 			auth: {
 				flowType: "pkce",

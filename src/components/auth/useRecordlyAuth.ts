@@ -1,4 +1,5 @@
 import type { User } from "@supabase/supabase-js";
+import { ACCOUNT_FEATURES_ENABLED } from "@/lib/auth/accountFeatures";
 import { useEffect, useRef, useState } from "react";
 import {
 	completeAuthCallback,
@@ -9,7 +10,7 @@ import {
 export function useRecordlyAuth() {
 	const [user, setUser] = useState<User | null>(null);
 	const [accessToken, setAccessToken] = useState<string>();
-	const [loading, setLoading] = useState(recordlyAuthConfigured);
+	const [loading, setLoading] = useState(ACCOUNT_FEATURES_ENABLED);
 	const [callbackError, setCallbackError] = useState<string>();
 	const callbackUrl = useRef<string | undefined>(undefined);
 

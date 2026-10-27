@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { ACCOUNT_FEATURES_ENABLED } from "@/lib/auth/accountFeatures";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -20,6 +21,7 @@ export function ExportErrorReportButton({
 	const [sent, setSent] = useState(false);
 	const [sendError, setSendError] = useState("");
 	const sendingRef = useRef(false);
+	if (!ACCOUNT_FEATURES_ENABLED) return null;
 	const report = buildExportErrorReport(error, plan, format);
 	return (
 		<>
@@ -42,13 +44,13 @@ export function ExportErrorReportButton({
 						<DialogTitle>{sent ? "报告已发送" : "报告导出错误"}</DialogTitle>
 					</DialogHeader>
 					{sent ? (
-						<p className="text-sm">
-							感谢反馈，技术报告已发送给 Recordly 支持团队。
-						</p>
+						<p className="text-sm">感谢反馈，技术报告已发送给 Recordly 支持团队。</p>
 					) : (
 						<>
 							<p className="text-sm text-muted-foreground">
-								通过 Supabase 将技术详情发送给 Recordly 支持团队，不包含账户标识、邮箱、录制内容、文件路径、附件或控制台日志。Supabase 可能单独保留连接日志。
+								通过 Supabase 将技术详情发送给 Recordly
+								支持团队，不包含账户标识、邮箱、录制内容、文件路径、附件或控制台日志。Supabase
+								可能单独保留连接日志。
 							</p>
 							<label className="flex flex-col gap-2 text-sm">
 								云端方案（选填）

@@ -1,3 +1,4 @@
+import { ACCOUNT_FEATURES_ENABLED } from "@/lib/auth/accountFeatures";
 import { ArrowRight, GithubLogo } from "@phosphor-icons/react";
 import { OnboardingPermissions } from "./OnboardingPermissions";
 import {
@@ -202,6 +203,7 @@ export function RecordlySignInDialog({
 	const disabled = Boolean(busy);
 	const artwork = `${import.meta.env.BASE_URL}auth/login-banner.png`;
 	const SignInBody = onboarding ? OnboardingBody : Fragment;
+	if (!ACCOUNT_FEATURES_ENABLED) return null;
 	const signInContent = (
 		<motion.div
 			layout={onboarding ? false : "position"}
@@ -261,9 +263,7 @@ export function RecordlySignInDialog({
 									</span>
 								</div>
 								<Modal.Heading className="whitespace-nowrap text-[clamp(12px,5cqw,22px)] font-semibold leading-tight tracking-tight">
-									{user
-										? "你的账户"
-										: "录制精美视频，轻松分享"}
+									{user ? "你的账户" : "录制精美视频，轻松分享"}
 								</Modal.Heading>
 								<Description className="text-sm">
 									{user ? user.email : "登录以开始使用"}
@@ -359,9 +359,7 @@ export function RecordlySignInDialog({
 							{(loadingProviders || providers.length > 0) && (
 								<div className="flex items-center gap-4">
 									<Separator className="flex-1" />
-									<span className="text-xs text-muted">
-										或使用邮箱继续
-									</span>
+									<span className="text-xs text-muted">或使用邮箱继续</span>
 									<Separator className="flex-1" />
 								</div>
 							)}
