@@ -1,0 +1,7 @@
+{
+  "tool": "built-in image_gen",
+  "approvedPresentation": "approved-logo-preview.png",
+  "master": "icon-master.png",
+  "prompt": "Isolate the approved dark-indigo rounded-square Zenvue icon with its two mint-green viewfinder corners; preserve the approved geometry and colors; remove presentation background and wordmark; transparent outside the rounded square.",
+  "platformExport": "scripts/generate-brand-icons.py (format conversion and resizing only)"
+}

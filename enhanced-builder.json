@@ -1,0 +1,19 @@
+{
+	"productName": "Zenvue",
+	"extraMetadata": {
+		"name": "zenvue",
+		"productName": "Zenvue",
+		"version": "1.4.0-zenvue.1"
+	},
+	"npmRebuild": false,
+	"win": {
+		"signAndEditExecutable": true,
+		"executableName": "Zenvue"
+	},
+	"directories": {
+		"output": "release/zenvue"
+	},
+	"extends": "./electron-builder.json5",
+	"publish": null,
+	"appId": "local.zenvue.desktop"
+}
