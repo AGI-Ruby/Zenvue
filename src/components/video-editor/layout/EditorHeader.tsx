@@ -5,6 +5,7 @@ import {
 	FilmStrip,
 	ArrowClockwise as Redo2,
 	ArrowCounterClockwise as Undo2,
+	XIcon,
 } from "@/components/ui/icons";
 import type { CSSProperties, FormEvent, RefObject } from "react";
 import { Button } from "@/components/ui/button";
@@ -248,6 +249,16 @@ export function EditorHeader(props: Props) {
 					authToken={props.authToken}
 					accountId={props.accountId}
 				/>
+				<Button
+					type="button"
+					variant="ghost"
+					onClick={() => window.close()}
+					className="inline-flex h-9 w-9 min-w-9 items-center justify-center p-0"
+					title="关闭编辑器"
+					aria-label="关闭编辑器"
+				>
+					<XIcon className="h-4 w-4" />
+				</Button>
 			</div>
 		</header>
 	);

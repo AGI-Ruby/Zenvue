@@ -81,3 +81,7 @@ playwright-report/
 /.toast-package-*/
 /branding/*verification*.json
 /branding/*changed-files*.json
+
+# Agent-local memory and temporary Vite configuration bundles
+/.workbuddy/
+/vite.config.*.timestamp-*.mjs

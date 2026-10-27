@@ -1,4 +1,4 @@
-param([Parameter(Mandatory = $true)][string]$AppPath)
+﻿param([Parameter(Mandatory = $true)][string]$AppPath)
 $ErrorActionPreference = 'Stop'
 $resolvedApp = (Resolve-Path -LiteralPath $AppPath).Path
 if ((Split-Path -Leaf $resolvedApp) -ne 'Zenvue.exe') { throw 'Expected a Zenvue.exe target.' }

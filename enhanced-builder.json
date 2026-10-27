@@ -3,7 +3,7 @@
 	"extraMetadata": {
 		"name": "zenvue",
 		"productName": "Zenvue",
-		"version": "1.4.1"
+		"version": "1.4.2"
 	},
 	"npmRebuild": false,
 	"win": {

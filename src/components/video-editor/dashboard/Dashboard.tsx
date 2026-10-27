@@ -25,13 +25,6 @@ export function Dashboard(props: DashboardProps) {
 								style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
 							>
 								<Button
-									variant="secondary"
-									size="sm"
-									onClick={() => void window.electronAPI.showRecordingHud(true)}
-								>
-									返回录制浮窗
-								</Button>
-								<Button
 									variant="ghost"
 									size="icon"
 									aria-label="关闭主页，返回浮窗"
