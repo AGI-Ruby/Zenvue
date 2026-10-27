@@ -6,7 +6,7 @@ Zenvue is an independently maintained derivative of Recordly. It is not an offic
 - Recordly: Copyright © 2026 webadderall. Upstream: https://github.com/webadderallorg/Recordly.
 - OpenScreen: Copyright © 2025 Siddharth Vaddem. Its original MIT notice is retained in LICENSE.md.
 
-The project remains licensed under GNU AGPL version 3 (SPDX: AGPL-3.0-only). The complete bundled license, upstream notices and original MIT attribution are preserved in LICENSE.md. Additional dependency and asset notices are in THIRD_PARTY_NOTICES.md and adjacent license files.
+The project remains licensed under GNU AGPL version 3 (SPDX: AGPL-3.0-only). LICENSE contains the AGPL text extracted without textual changes from the bundled license for standard repository license detection. The complete original bundled license, upstream notices and original MIT attribution are preserved unchanged in LICENSE.md. Additional dependency and asset notices are in THIRD_PARTY_NOTICES.md and adjacent license files.
 
 Zenvue-specific changes include independent branding, Simplified Chinese interface and notifications, Windows recording-region controls, recording HUD and source-selection fixes, typing-triggered zoom, cursor and transition refinements, recording-library workflows and export improvements. This derivative snapshot was prepared for its own repository on 2026-10-27; individual implementation dates may be earlier. The original upstream Git history was not present in this workspace.
 
