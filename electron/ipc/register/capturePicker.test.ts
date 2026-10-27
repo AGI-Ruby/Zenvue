@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
 	selected: vi.fn(),
 	clearHighlight: vi.fn(),
 	refreshHighlight: vi.fn(),
+	showControls: vi.fn(),
 	broadcast: vi.fn(),
 	recording: false,
 	currentSource: null as Record<string, unknown> | null,
@@ -26,6 +27,7 @@ vi.mock("electron", () => ({
 vi.mock("../../windows", () => ({
 	createCapturePickerWindows: mocks.create,
 	closeCapturePickerWindows: mocks.close,
+	showCaptureSelectionControls: mocks.showControls,
 	isCapturePickerWebContents: (sender: object) => mocks.windows.includes(sender),
 }));
 vi.mock("../captureSelection", () => ({
@@ -76,7 +78,7 @@ beforeEach(() => {
 const call = (name: string, sender: object, input?: unknown) =>
 	mocks.handlers.get(name)!({ sender }, input);
 describe("selection-only picker IPC", () => {
-	it("native cancel closes every overlay and preserves the previously selected source", async () => {
+	it("native cancel closes every overlay without restoring the previous source's dimmer", async () => {
 		mocks.currentSource = {
 			id: "area:1",
 			display_id: "1",
@@ -88,9 +90,22 @@ describe("selection-only picker IPC", () => {
 		onClosed();
 		expect(await pending).toEqual({ success: false, canceled: true });
 		expect(mocks.close).toHaveBeenCalled();
-		expect(mocks.clearHighlight).toHaveBeenCalledOnce();
-		expect(mocks.refreshHighlight).toHaveBeenCalledOnce();
+		expect(mocks.clearHighlight).toHaveBeenCalledTimes(2);
+		expect(mocks.refreshHighlight).not.toHaveBeenCalled();
 		expect(mocks.selected).not.toHaveBeenCalled();
+	});
+	it("renderer cancel also clears the highlight and allows a fresh selection", async () => {
+		const pending = call("pick-capture-target", mocks.outsider);
+		await vi.waitFor(() => expect(mocks.create).toHaveBeenCalledOnce());
+		await call("complete-capture-pick", mocks.overlay, null);
+		expect(await pending).toEqual({ success: false, canceled: true });
+		expect(mocks.refreshHighlight).not.toHaveBeenCalled();
+		expect(mocks.clearHighlight).toHaveBeenCalledTimes(2);
+		const next = call("pick-capture-target", mocks.outsider);
+		await vi.waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(2));
+		await call("complete-capture-pick", mocks.overlay, { kind: "screen", displayId: 1 });
+		expect(await next).toMatchObject({ success: true });
+		expect(mocks.broadcast).toHaveBeenCalledOnce();
 	});
 	it("ignores completion from other windows and forces selection-only completion", async () => {
 		const pending = call("pick-capture-target", mocks.outsider);
@@ -240,4 +255,73 @@ it("keeps the X11 source list closed during recording", async () => {
 		canceled: true,
 	});
 	expect(mocks.pickSourceList).not.toHaveBeenCalled();
+});
+for (const kind of ["screen", "area", "window"] as const) {
+	it("keeps an editable " + kind + " selection and raises the HUD until Escape", async () => {
+		if (kind === "window")
+			mocks.list.mockResolvedValue([
+				{
+					id: "window:101:0",
+					title: "Explorer",
+					appName: "Explorer",
+					x: 100,
+					y: 100,
+					width: 800,
+					height: 600,
+					display_id: "1",
+				},
+			]);
+		const pending = call("pick-capture-target", mocks.outsider);
+		await vi.waitFor(() => expect(mocks.create).toHaveBeenCalledOnce());
+		const closedBefore = mocks.close.mock.calls.length;
+		const input =
+			kind === "screen"
+				? { kind, displayId: 1 }
+				: kind === "window"
+					? { kind, displayId: 1, windowId: "window:101:0" }
+					: { kind, displayId: 1, x: 100, y: 100, width: 400, height: 300 };
+		await mocks.handlers.get("complete-capture-pick")!({ sender: mocks.overlay }, input, true);
+		expect(await pending).toMatchObject({ success: true });
+		expect(mocks.close).toHaveBeenCalledTimes(closedBefore);
+		expect(mocks.showControls).toHaveBeenCalledWith(mocks.overlay);
+		if (kind === "area") {
+			await mocks.handlers.get("complete-capture-pick")!(
+				{ sender: mocks.overlay },
+				{ ...input, x: 200 },
+				true,
+			);
+			expect(mocks.selected).toHaveBeenLastCalledWith(
+				expect.objectContaining({ area: expect.objectContaining({ x: 200 }) }),
+			);
+		}
+		const onClosed = mocks.create.mock.calls[0][0] as () => void;
+		onClosed();
+		expect(mocks.selected).toHaveBeenLastCalledWith(null);
+		expect(mocks.close).toHaveBeenCalledTimes(closedBefore + 1);
+		expect(mocks.refreshHighlight).not.toHaveBeenCalled();
+	});
+}
+
+it("does not restore a selection after Escape interrupts source validation", async () => {
+	let finishValidation!: () => void;
+	mocks.validate.mockImplementation(
+		(source) =>
+			new Promise((resolve) => {
+				finishValidation = () => resolve(source);
+			}),
+	);
+	const pending = call("pick-capture-target", mocks.outsider);
+	await vi.waitFor(() => expect(mocks.create).toHaveBeenCalledOnce());
+	await mocks.handlers.get("complete-capture-pick")!(
+		{ sender: mocks.overlay },
+		{ kind: "area", displayId: 1, x: 100, y: 100, width: 400, height: 300 },
+		true,
+	);
+	await vi.waitFor(() => expect(mocks.validate).toHaveBeenCalledOnce());
+	(mocks.create.mock.calls[0][0] as () => void)();
+	finishValidation();
+	expect(await pending).toMatchObject({ success: false, canceled: true });
+	expect(mocks.selected).toHaveBeenCalledOnce();
+	expect(mocks.selected).toHaveBeenLastCalledWith(null);
+	expect(mocks.showControls).not.toHaveBeenCalled();
 });

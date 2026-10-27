@@ -1,4 +1,5 @@
 import { protectRecordingControls } from "./recordingSafety";
+import { createConfirmedSelectionCancellation } from "./confirmedSelectionCancellation";
 import { resolveEditorStartupView } from "./editorStartupView";
 import { attachCapturePickerEscape } from "./capturePickerKeyboard";
 import { currentProjectPath, currentVideoPath, currentRecordingSession } from "./ipc/state";
@@ -7,7 +8,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, ipcMain, screen, type WebContents } from "electron";
+import { app, BrowserWindow, globalShortcut, ipcMain, screen, type WebContents } from "electron";
 import {
 	supportsHudCaptureProtection,
 	shouldProtectHudCapture,
@@ -48,11 +49,42 @@ let hudDirectWindowCapture = false;
 let hudOverlayWebcamPreviewVisible = false;
 let countdownWindow: BrowserWindow | null = null;
 let capturePickerWindows: BrowserWindow[] = [];
+let cancelCaptureSelection: (() => void) | null = null;
 let areaRecordingBorderWindow: BrowserWindow | null = null;
 let areaRecordingBorderKey = "";
 let areaRecordingBorderExcluded = false;
 let areaRecordingBorderViewport = "";
 let areaRecordingBorderStyle: Record<string, string> = {};
+let cancelConfirmedSelection: (() => void) | null = null;
+const confirmedSelectionCancellation = createConfirmedSelectionCancellation({
+	register: (callback) => globalShortcut.register("Escape", callback),
+	unregister: () => globalShortcut.unregister("Escape"),
+	cancel: () => cancelConfirmedSelection?.(),
+});
+
+export function setConfirmedSelectionCancelHandler(handler: () => void) {
+	cancelConfirmedSelection = handler;
+}
+
+function updateConfirmedSelectionState() {
+	const win = areaRecordingBorderWindow;
+	const active = Boolean(
+		win &&
+			!win.isDestroyed() &&
+			cancelConfirmedSelection &&
+			!hudCaptureStarting &&
+			!hudOverlayRecordingActive,
+	);
+	confirmedSelectionCancellation.setActive(active);
+	areaRecordingBorderStyle["--hint-display"] = active ? "block" : "none";
+	if (win && !win.isDestroyed() && !win.webContents.isLoadingMainFrame()) {
+		void win.webContents
+			.executeJavaScript(
+				`document.documentElement.style.setProperty('--hint-display', ${JSON.stringify(active ? "block" : "none")});`,
+			)
+			.catch(() => {});
+	}
+}
 let updateToastWindow: BrowserWindow | null = null;
 let hudWasVisibleBeforeUpdateToast = false;
 
@@ -198,13 +230,16 @@ function applyHudOverlayCaptureProtectionToWindow(hud: BrowserWindow, enabled: b
 }
 
 export function beginHudCaptureProtection(options?: { directWindowCapture?: boolean }): void {
+	closeCapturePickerWindows();
 	hudDirectWindowCapture = process.platform === "win32" && options?.directWindowCapture === true;
 	hudCaptureStarting = true;
+	updateConfirmedSelectionState();
 	reassertHudOverlayCaptureProtection();
 	getHudOverlayWindow()?.showInactive();
 }
 ipcMain.handle("finish-recording-startup", () => {
 	hudCaptureStarting = false;
+	updateConfirmedSelectionState();
 	reassertHudOverlayCaptureProtection();
 });
 
@@ -657,6 +692,17 @@ export function createHudOverlayWindow(): BrowserWindow {
 	ipcMain.on("hud-overlay-renderer-ready", handleHudRendererReady);
 
 	hudOverlayWindow = win;
+	win.webContents.on("before-input-event", (event, input) => {
+		if (hudCaptureStarting || hudOverlayRecordingActive) return;
+		const cancel = areaRecordingBorderWindow
+			? cancelConfirmedSelection
+			: cancelCaptureSelection;
+		if (!cancel) return;
+		if (input.type === "keyDown" && (input.key === "Escape" || input.code === "Escape")) {
+			event.preventDefault();
+			cancel();
+		}
+	});
 	protectRecordingControls(win, () => hudOverlayRecordingActive);
 
 	// On Linux the HUD is dragged by the OS via -webkit-app-region (Wayland
@@ -677,6 +723,7 @@ export function createHudOverlayWindow(): BrowserWindow {
 	};
 	const handleDisplayMetricsChanged = () => {
 		if (hudUserPosition) {
+			updateConfirmedSelectionState();
 			const displays = screen.getAllDisplays();
 			const onScreen = displays.some(
 				(d) =>
@@ -756,8 +803,10 @@ export function reassertHudOverlayMousePassthrough(): void {
 }
 
 export function setHudOverlayRecordingActive(recording: boolean): void {
+	if (recording) closeCapturePickerWindows();
 	hudCaptureStarting = false;
 	hudOverlayRecordingActive = Boolean(recording);
+	updateConfirmedSelectionState();
 	if (!recording) hudDirectWindowCapture = false;
 	notifyEditorMode();
 	hudOverlayFallbackExpanded = false;
@@ -1219,6 +1268,7 @@ export function createCapturePickerWindows(onClosed: () => void): BrowserWindow[
 	const cursorDisplayId = getScreen().getDisplayNearestPoint(
 		getScreen().getCursorScreenPoint(),
 	).id;
+	cancelCaptureSelection = onClosed;
 	capturePickerWindows = getScreen()
 		.getAllDisplays()
 		.map((display) => {
@@ -1297,10 +1347,24 @@ export function getCapturePickerWindows(): BrowserWindow[] {
 
 export function closeCapturePickerWindows(): void {
 	const windows = capturePickerWindows;
+	cancelCaptureSelection = null;
 	capturePickerWindows = [];
 	for (const win of windows) {
 		if (!win.isDestroyed()) win.close();
 	}
+}
+
+/** Keep the existing recording HUD above the editable selection, including full-screen picks. */
+export function showCaptureSelectionControls(contents: WebContents | null): void {
+	for (const win of capturePickerWindows) {
+		if (!win.isDestroyed() && contents && win.webContents !== contents) win.hide();
+	}
+	const hud = getHudOverlayWindow() ?? createHudOverlayWindow();
+	if (hud.isMinimized()) hud.restore();
+	hud.setAlwaysOnTop(true, "screen-saver");
+	hud.showInactive();
+	hud.moveTop();
+	reassertHudOverlayMousePassthrough();
 }
 
 /** Whether a message came from one of the open picker overlays. */
@@ -1331,11 +1395,16 @@ export function showAreaRecordingBorder(area: {
 	)
 		return;
 	const viewport = JSON.stringify([left, top, right, bottom]);
+	const hintDisplay = screen.getDisplayMatching(area).bounds;
 	const style = {
 		"--x": `${area.x - left}px`,
 		"--y": `${area.y - top}px`,
 		"--w": `${area.width}px`,
 		"--h": `${area.height}px`,
+		"--hint-x": `${hintDisplay.x - left + hintDisplay.width / 2}px`,
+		"--hint-y": `${hintDisplay.y - top + 32}px`,
+		"--hint-width": `${Math.max(200, hintDisplay.width - 48)}px`,
+		"--hint-display": !hudCaptureStarting && !hudOverlayRecordingActive ? "block" : "none",
 	};
 	const applyStyle = (target: BrowserWindow) =>
 		target.webContents
@@ -1383,10 +1452,14 @@ export function showAreaRecordingBorder(area: {
 		skipTransformProcessType: true,
 	});
 	areaRecordingBorderWindow = win;
+	updateConfirmedSelectionState();
 	areaRecordingBorderExcluded = false;
 	applySelectionOverlayCaptureProtection();
 	win.on("closed", () => {
-		if (areaRecordingBorderWindow === win) areaRecordingBorderWindow = null;
+		if (areaRecordingBorderWindow === win) {
+			areaRecordingBorderWindow = null;
+			updateConfirmedSelectionState();
+		}
 	});
 
 	const html = `<!DOCTYPE html><html><head><style>
@@ -1398,7 +1471,8 @@ div{position:fixed;pointer-events:none;box-sizing:border-box}
 .left{left:0;top:var(--y);width:max(0px,var(--x));height:var(--h)}
 .right{left:calc(var(--x) + var(--w));right:0;top:var(--y);height:var(--h)}
 .border{left:var(--x);top:var(--y);width:var(--w);height:var(--h);border:2px solid #facc15}
-</style></head><body><div class="shade top"></div><div class="shade bottom"></div><div class="shade left"></div><div class="shade right"></div><div class="border"></div></body></html>`;
+.selection-hint{display:var(--hint-display,none);left:var(--hint-x);top:var(--hint-y);transform:translateX(-50%);max-width:var(--hint-width);padding:16px 28px;border:2px solid #facc15;border-radius:16px;background:rgba(0,0,0,.95);color:white;font:600 20px/1.5 "Segoe UI","Microsoft YaHei",sans-serif;text-align:center;box-shadow:0 8px 32px #0006;z-index:2}
+</style></head><body><div class="shade top"></div><div class="shade bottom"></div><div class="shade left"></div><div class="shade right"></div><div class="border"></div><div class="selection-hint" role="status">录制区域已选定 · 按 Esc 退出选择 · 点击浮窗开始录制</div></body></html>`;
 	void win
 		.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
 		.then(() => {
@@ -1431,6 +1505,7 @@ function applySelectionOverlayCaptureProtection() {
 }
 
 export function hideAreaRecordingBorder(): void {
+	confirmedSelectionCancellation.setActive(false);
 	areaRecordingBorderKey = "";
 	const win = areaRecordingBorderWindow;
 	areaRecordingBorderWindow = null;

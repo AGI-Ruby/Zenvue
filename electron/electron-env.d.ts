@@ -250,7 +250,7 @@ interface Window {
 			source?: ProcessedDesktopSource;
 			message?: string;
 		}>;
-		completeCapturePick: (pick: CapturePick | null) => Promise<void>;
+		completeCapturePick: (pick: CapturePick | null, keepEditing?: boolean) => Promise<void>;
 		getCapturePickerContext: (displayId: number) => Promise<{
 			displayScaleFactor?: number;
 			displayBounds: CaptureArea | null;
@@ -864,7 +864,7 @@ interface Window {
 		}>;
 		showRecordingPermissions: () => Promise<void>;
 		onRecordingPermissionsRequested: (callback: () => void) => () => void;
-		showRecordingHud: () => Promise<void>;
+		showRecordingHud: (hideHome?: boolean) => Promise<void>;
 		createProjectFile: (
 			data: unknown,
 			thumbnail?: string | null,

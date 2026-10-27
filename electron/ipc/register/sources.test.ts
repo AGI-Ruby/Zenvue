@@ -12,6 +12,12 @@ const mocks = vi.hoisted(() => ({
 	windows: vi.fn(),
 	writeAppSetting: vi.fn(),
 	setHudRecordingPreparationActive: vi.fn(),
+	fromWebContents: vi.fn(),
+	getHud: vi.fn(),
+	createHud: vi.fn(),
+	setCancelHandler: vi.fn(),
+	closePickers: vi.fn(),
+	hideBorder: vi.fn(),
 }));
 vi.mock("electron", () => ({
 	ipcMain: {
@@ -19,7 +25,7 @@ vi.mock("electron", () => ({
 			mocks.handlers.set(name, handler),
 	},
 	app: { getName: () => "Recordly", focus: vi.fn() },
-	BrowserWindow: { getAllWindows: mocks.windows },
+	BrowserWindow: { getAllWindows: mocks.windows, fromWebContents: mocks.fromWebContents },
 	desktopCapturer: { getSources: mocks.sources },
 }));
 vi.mock("node:child_process", () => ({ execFile: mocks.exec }));
@@ -27,10 +33,19 @@ vi.mock("node:util", () => ({ promisify: () => mocks.exec }));
 vi.mock("../../appSettingsStore", () => ({ writeAppSetting: mocks.writeAppSetting }));
 vi.mock("../../windows", () => ({
 	setHudRecordingPreparationActive: mocks.setHudRecordingPreparationActive,
+	getHudOverlayWindow: mocks.getHud,
+	createHudOverlayWindow: mocks.createHud,
+	hideAreaRecordingBorder: mocks.hideBorder,
+	showAreaRecordingBorder: vi.fn(),
+	setConfirmedSelectionCancelHandler: mocks.setCancelHandler,
+	closeCapturePickerWindows: mocks.closePickers,
 }));
 vi.mock("../constants", () => ({ ALLOW_RECORDLY_WINDOW_CAPTURE: false }));
-vi.mock("../cursor/bounds", () => ({ stopWindowBoundsCapture: vi.fn() }));
-vi.mock("../recording/ffmpeg", () => ({}));
+vi.mock("../cursor/bounds", () => ({
+	stopWindowBoundsCapture: vi.fn(),
+	resolveLinuxWindowBounds: vi.fn().mockResolvedValue(null),
+}));
+vi.mock("../recording/ffmpeg", () => ({ getDisplayBoundsForSource: vi.fn(() => null) }));
 vi.mock("../windowsWindowControl", () => ({}));
 vi.mock("../captureSelection", () => ({
 	validateCaptureSource: mocks.validate,
@@ -194,7 +209,11 @@ for (const platform of ["darwin", "win32", "linux"]) {
 		expect(read()).toBeNull();
 		const source = { id: "screen:1:0", name: "Screen 1", display_id: "1" };
 		mocks.selected = source;
-		expect(read()).toEqual(source);
+		expect(read()).toEqual({
+			...source,
+			displayBounds: { x: 0, y: 0 },
+			displayScaleFactor: undefined,
+		});
 	});
 }
 
@@ -210,4 +229,44 @@ it("Wayland starts unselected and prepares its portal only after an explicit pic
 	});
 	expect(picker.create).not.toHaveBeenCalled();
 	expect(mocks.sources).not.toHaveBeenCalled();
+});
+it("returning from the homepage restores the HUD and hides the editor without closing it", () => {
+	pickerFixture();
+	const home = { isDestroyed: () => false, hide: vi.fn(), close: vi.fn() };
+	const hud = {
+		isDestroyed: () => false,
+		isMinimized: () => true,
+		restore: vi.fn(),
+		show: vi.fn(),
+		moveTop: vi.fn(),
+		focus: vi.fn(),
+	};
+	mocks.fromWebContents.mockReturnValue(home);
+	mocks.getHud.mockReturnValue(hud);
+	mocks.handlers.get("show-recording-hud")!({ sender: {} }, true);
+	expect(mocks.setHudRecordingPreparationActive).toHaveBeenCalledWith(true);
+	expect(hud.restore).toHaveBeenCalledOnce();
+	expect(hud.show).toHaveBeenCalledOnce();
+	expect(hud.moveTop).toHaveBeenCalledOnce();
+	expect(home.hide).toHaveBeenCalledOnce();
+	expect(home.close).not.toHaveBeenCalled();
+});
+it("Escape clears a confirmed yellow selection and closes the editing layer", () => {
+	pickerFixture();
+	mocks.selected = { id: "area:1", name: "Area", display_id: "1" };
+	const cancel = mocks.setCancelHandler.mock.calls[0][0] as () => void;
+	cancel();
+	expect(mocks.selected).toBeNull();
+	expect(mocks.hideBorder).toHaveBeenCalled();
+	expect(mocks.closePickers).toHaveBeenCalledOnce();
+});
+
+it("confirmed-selection cancellation cannot clear an active recording source", () => {
+	pickerFixture();
+	const source = { id: "screen:1:0", name: "Screen", display_id: "1" };
+	mocks.selected = source;
+	mocks.recording = true;
+	(mocks.setCancelHandler.mock.calls[0][0] as () => void)();
+	expect(mocks.selected).toBe(source);
+	expect(mocks.closePickers).not.toHaveBeenCalled();
 });

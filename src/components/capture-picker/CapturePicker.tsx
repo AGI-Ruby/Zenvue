@@ -26,6 +26,7 @@ function screenRect() {
 export function CapturePicker() {
 	const displayId = Number(new URLSearchParams(window.location.search).get("displayId"));
 	const [target, setTarget] = useState<Target | null>(null);
+	const [selected, setSelected] = useState(false);
 	const [allowArea, setAllowArea] = useState(false);
 	const [pixelScale, setPixelScale] = useState(1);
 	const windows = useRef<{ window: CapturePickerWindow; rect: AreaRect }[]>([]);
@@ -69,7 +70,12 @@ export function CapturePicker() {
 				(pick.rect.width < MIN_AREA_SIZE || pick.rect.height < MIN_AREA_SIZE)
 			)
 				return;
-			completed.current = true;
+			completed.current = !pick;
+			if (pick) {
+				current.current = pick;
+				setTarget(pick);
+				setSelected(true);
+			}
 			const common = { displayId, record: false };
 			void window.electronAPI.completeCapturePick(
 				!pick
@@ -85,6 +91,7 @@ export function CapturePicker() {
 									x: origin.current.x + pick.rect.x,
 									y: origin.current.y + pick.rect.y,
 								},
+				Boolean(pick),
 			);
 		},
 		[displayId],
@@ -177,8 +184,15 @@ export function CapturePicker() {
 					screenRect(),
 				),
 			});
-		} else if (!start && !editingArea.current) update(targetAt(event.clientX, event.clientY));
+		} else if (!start && !editingArea.current && !selected)
+			update(targetAt(event.clientX, event.clientY));
 	};
+	const fullScreen =
+		target &&
+		target.rect.x === 0 &&
+		target.rect.y === 0 &&
+		target.rect.width === window.innerWidth &&
+		target.rect.height === window.innerHeight;
 	const label =
 		target?.kind === "window"
 			? [target.window.appName, target.window.title].filter(Boolean).join(" — ")
@@ -188,12 +202,13 @@ export function CapturePicker() {
 	return (
 		<div
 			className="fixed inset-0 select-none overflow-hidden"
+			data-selection-phase={selected ? "confirmed" : "picking"}
 			style={{ cursor: "crosshair", background: target ? "transparent" : "rgba(0,0,0,0.38)" }}
 			onPointerMove={onMove}
 			onPointerDown={(event) => {
 				if (event.button !== 0) return;
 				const area =
-					editingArea.current && current.current?.kind === "area"
+					!fullScreen && editingArea.current && current.current?.kind === "area"
 						? current.current.rect
 						: null;
 				const handle = (event.target as HTMLElement).closest<HTMLElement>(
@@ -215,7 +230,11 @@ export function CapturePicker() {
 				press.current = null;
 				if (event.currentTarget.hasPointerCapture(event.pointerId))
 					event.currentTarget.releasePointerCapture(event.pointerId);
-				if (start.drawing || start.rect) return;
+				if (start.drawing || start.rect) {
+					finish(current.current);
+					return;
+				}
+				if (selected) return;
 				if (editingArea.current) {
 					editingArea.current = false;
 				}
@@ -238,10 +257,31 @@ export function CapturePicker() {
 					取消选框（Esc）
 				</Button>
 			</div>
+			{selected && (
+				<div
+					className="absolute bottom-24 left-1/2 z-50 -translate-x-1/2"
+					onPointerDown={(event) => event.stopPropagation()}
+					onPointerUp={(event) => event.stopPropagation()}
+				>
+					<Button
+						variant="secondary"
+						aria-label="Choose another source"
+						onClick={() => {
+							press.current = null;
+							editingArea.current = false;
+							current.current = null;
+							setSelected(false);
+							setTarget(null);
+						}}
+					>
+						重新框选
+					</Button>
+				</div>
+			)}
 			{target && (
 				<div
 					className={
-						target.kind === "area" && editingArea.current
+						target.kind === "area" && editingArea.current && !fullScreen
 							? "absolute cursor-move"
 							: "pointer-events-none absolute"
 					}
@@ -250,13 +290,14 @@ export function CapturePicker() {
 						top: target.rect.y,
 						width: target.rect.width,
 						height: target.rect.height,
-						background: "rgba(10,132,255,0.16)",
-						boxShadow: "0 0 0 100vmax rgba(0,0,0,0.38)",
-						outline: "2px solid #0a84ff",
+						background: selected ? "transparent" : "rgba(10,132,255,0.16)",
+						boxShadow: selected ? "none" : "0 0 0 100vmax rgba(0,0,0,0.38)",
+						outline: selected ? "none" : "2px solid #0a84ff",
 						outlineOffset: -2,
 					}}
 				>
 					{target.kind === "area" &&
+						!fullScreen &&
 						AREA_HANDLES.map((handle) => {
 							const left = handle.includes("w")
 								? "0%"
@@ -282,59 +323,28 @@ export function CapturePicker() {
 								/>
 							);
 						})}
-					<div
-						className="pointer-events-none absolute whitespace-nowrap rounded-md bg-blue-600 px-2 py-1 text-xs text-white"
-						style={{ top: target.rect.y >= 30 ? -28 : 6, left: 6 }}
-					>
-						{label} · {Math.floor((target.rect.width * pixelScale) / 2) * 2} ×{" "}
-						{Math.floor((target.rect.height * pixelScale) / 2) * 2} px
+					{
+						<div
+							className={`pointer-events-none absolute whitespace-nowrap rounded-md px-2 py-1 text-xs ${selected ? "bg-yellow-300 text-black" : "bg-blue-600 text-white"}`}
+							style={{ top: target.rect.y >= 30 ? -28 : 6, left: 6 }}
+						>
+							{label} · {Math.floor((target.rect.width * pixelScale) / 2) * 2} ×{" "}
+							{Math.floor((target.rect.height * pixelScale) / 2) * 2} px
+						</div>
+					}
+				</div>
+			)}
+			{!selected && (
+				<div className="pointer-events-none absolute inset-x-0 top-20 z-50 flex justify-center px-6">
+					<div className="rounded-2xl border-2 border-yellow-300 bg-black/95 px-8 py-4 text-center text-xl font-semibold text-white shadow-2xl">
+						{target?.kind === "area" && editingArea.current
+							? "松开鼠标即选中 · 无需回车 · 按 Esc 退出选择"
+							: allowArea
+								? "点击窗口或拖动框选 · 松开即选中 · 按 Esc 退出选择"
+								: "点击窗口或桌面 · 按 Esc 退出选择"}
 					</div>
 				</div>
 			)}
-			{target?.kind === "area" && (
-				<div
-					className="absolute bottom-12 left-1/2 -translate-x-1/2"
-					onPointerDown={(event) => event.stopPropagation()}
-					onPointerUp={(event) => event.stopPropagation()}
-					onKeyDown={(event) => {
-						if (event.key === "Enter" || event.key === " ") event.stopPropagation();
-					}}
-				>
-					<Button
-						variant="secondary"
-						size="sm"
-						disabled={
-							target.rect.width < MIN_AREA_SIZE || target.rect.height < MIN_AREA_SIZE
-						}
-						onClick={() => finish(current.current)}
-					>
-						确认选区（Enter）
-					</Button>
-					<Button
-						variant="secondary"
-						size="sm"
-						onClick={() => {
-							press.current = null;
-							editingArea.current = false;
-							current.current = null;
-							setTarget(null);
-						}}
-					>
-						重新框选
-					</Button>
-				</div>
-			)}
-			<div className="pointer-events-none absolute inset-x-0 bottom-24 flex justify-center">
-				<div className="rounded-full bg-black/80 px-4 py-2 text-sm text-white">
-					{target?.kind === "area" && editingArea.current
-						? target.rect.width < MIN_AREA_SIZE || target.rect.height < MIN_AREA_SIZE
-							? "选区过小 · 拖动扩大 · 按 Esc 取消"
-							: "移动或调整选区 · 按 Enter 确认 · 按 Esc 取消"
-						: allowArea
-							? "点击窗口或桌面，也可拖动框选区域 · 按 Esc 取消"
-							: "点击窗口或桌面 · 按 Esc 取消"}
-				</div>
-			</div>
 		</div>
 	);
 }

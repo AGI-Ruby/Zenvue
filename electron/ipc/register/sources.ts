@@ -12,6 +12,8 @@ import {
 	getHudOverlayWindow,
 	showAreaRecordingBorder,
 	hideAreaRecordingBorder,
+	closeCapturePickerWindows,
+	setConfirmedSelectionCancelHandler,
 } from "../../windows";
 import { ALLOW_RECORDLY_WINDOW_CAPTURE } from "../constants";
 import {
@@ -451,6 +453,14 @@ export function registerSourceHandlers({
 	getSourceSelectorWindow: () => BrowserWindow | null;
 }) {
 	const recordingNavigation = createRecordingEditorNavigation(createEditorWindow);
+	setConfirmedSelectionCancelHandler(() => {
+		if (isCursorCaptureActive) return;
+		clearSelectedSourceHighlight();
+		closeCapturePickerWindows();
+		setSelectedSource(null);
+		stopWindowBoundsCapture();
+		broadcastSelectedSourceChange();
+	});
 	const sourceListPicker = createSourceListPicker(
 		() => getSourceSelectorWindow() ?? createSourceSelectorWindow(),
 	);
@@ -520,16 +530,20 @@ export function registerSourceHandlers({
 		}
 		createSourceSelectorWindow();
 	});
-	ipcMain.handle("show-recording-hud", (event) => {
+	ipcMain.handle("show-recording-hud", (event, hideHome?: boolean) => {
 		setHudRecordingPreparationActive(true);
-		recordingNavigation.setReturnWindow(BrowserWindow.fromWebContents(event.sender));
+		const home = BrowserWindow.fromWebContents(event.sender);
+		recordingNavigation.setReturnWindow(home);
 		const hud = getHudOverlayWindow();
 		if (hud && !hud.isDestroyed()) {
+			if (hud.isMinimized()) hud.restore();
 			hud.show();
+			hud.moveTop();
 			hud.focus();
 		} else {
 			createHudOverlayWindow();
 		}
+		if (hideHome === true && home && home !== hud && !home.isDestroyed()) home.hide();
 	});
 	ipcMain.handle("show-recording-permissions", () => {
 		if (isCursorCaptureActive) return;

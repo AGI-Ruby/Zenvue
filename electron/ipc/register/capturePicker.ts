@@ -4,6 +4,7 @@ import { ipcMain } from "electron";
 import type { SourceListPickResult } from "../../sourceListPicker";
 import {
 	closeCapturePickerWindows,
+	showCaptureSelectionControls,
 	createCapturePickerWindows,
 	isCapturePickerWebContents,
 } from "../../windows";
@@ -67,6 +68,45 @@ export function registerCapturePickerHandlers({
 		resolve?.(pick);
 	};
 
+	let editingSelection = false;
+	let editingSender: Electron.WebContents | null = null;
+	let selectionRevision = 0;
+	const cancelSelection = () => {
+		selectionRevision++;
+		finishPick(null);
+		if (editingSelection && !isCursorCaptureActive) {
+			editingSelection = false;
+			setSelectedSource(null);
+			broadcastSelectedSourceChange();
+		}
+		if (!isCursorCaptureActive) clearSelectedSourceHighlight();
+		closeCapturePickerWindows();
+	};
+	const applyPick = async (pick: CapturePick) => {
+		const revision = ++selectionRevision;
+		let source: SelectedSource | null;
+		if (pick.kind === "area") source = createAreaSource(pick);
+		else if (pick.kind === "window") {
+			const window = (await pickableWindows).find((entry) => entry.id === pick.windowId);
+			source = window ? createWindowSource(window) : null;
+		} else source = await createScreenSource(pick.displayId);
+		if (source) source = await validateCaptureSource(source);
+		if (
+			revision !== selectionRevision ||
+			isCursorCaptureActive ||
+			(editingSelection && editingSender && !isCapturePickerWebContents(editingSender))
+		)
+			return { success: false, canceled: true };
+		if (!source) {
+			cancelSelection();
+			return { success: false, message: "That window or screen is no longer available." };
+		}
+		setSelectedSource(source);
+		broadcastSelectedSourceChange();
+		stopWindowBoundsCapture();
+		showCaptureSelectionControls(editingSender);
+		return { success: true, source };
+	};
 	let activePick: Promise<unknown> | null = null;
 	const pickTarget = async () => {
 		if (isCursorCaptureActive) return { success: false, canceled: true };
@@ -89,6 +129,10 @@ export function registerCapturePickerHandlers({
 
 		if (process.platform === "linux") return pickSourceList();
 
+		editingSelection = false;
+		editingSender = null;
+		selectionRevision++;
+		closeCapturePickerWindows();
 		clearSelectedSourceHighlight();
 		finishPick(null);
 		// List windows before the overlays cover them.
@@ -97,35 +141,16 @@ export function registerCapturePickerHandlers({
 		const pick = await new Promise<CapturePick | null>((resolve) => {
 			resolvePendingPick = resolve;
 			// Closing an overlay without confirming cancels the pick.
-			createCapturePickerWindows(() => finishPick(null));
+			createCapturePickerWindows(cancelSelection);
 		});
-		closeCapturePickerWindows();
+		if (!editingSelection) closeCapturePickerWindows();
 		if (!pick || isCursorCaptureActive) {
-			void refreshSelectedSourceHighlight();
+			// Cancellation must leave the desktop clear. Restoring the previous
+			// source's highlight here recreates its dimmer after Escape closes the picker.
 			return { success: false, canceled: true };
 		}
 
-		let source: SelectedSource | null;
-		if (pick.kind === "area") {
-			source = createAreaSource(pick);
-		} else if (pick.kind === "window") {
-			const window = (await pickableWindows).find((entry) => entry.id === pick.windowId);
-			source = window ? createWindowSource(window) : null;
-		} else {
-			source = await createScreenSource(pick.displayId);
-		}
-		if (source) source = await validateCaptureSource(source);
-		if (!source) {
-			void refreshSelectedSourceHighlight();
-			return { success: false, message: "That window or screen is no longer available." };
-		}
-
-		if (isCursorCaptureActive) return { success: false, canceled: true };
-		// Recording brings the selected window forward; selection need not wait for it.
-		setSelectedSource(source);
-		broadcastSelectedSourceChange();
-		stopWindowBoundsCapture();
-		return { success: true, source };
+		return applyPick(pick);
 	};
 	ipcMain.handle("pick-capture-target", () => {
 		if (isCursorCaptureActive) return { success: false, canceled: true };
@@ -150,7 +175,7 @@ export function registerCapturePickerHandlers({
 		return activePick;
 	});
 
-	ipcMain.handle("complete-capture-pick", async (event, input: unknown) => {
+	ipcMain.handle("complete-capture-pick", async (event, input: unknown, keepEditing = false) => {
 		if (!isCapturePickerWebContents(event.sender)) return;
 		if (
 			input &&
@@ -161,19 +186,24 @@ export function registerCapturePickerHandlers({
 		)
 			return;
 		if (!input || isCursorCaptureActive) {
-			finishPick(null);
+			cancelSelection();
 			return;
 		}
 		const displays = getScreen()
 			.getAllDisplays()
 			.map((display) => ({ id: display.id, bounds: display.bounds }));
-		finishPick(
-			normalizeCapturePick(
-				input && typeof input === "object" ? { ...input, record: false } : input,
-				displays,
-				await pickableWindows,
-			),
+		const pick = normalizeCapturePick(
+			input && typeof input === "object" ? { ...input, record: false } : input,
+			displays,
+			await pickableWindows,
 		);
+		if (!isCapturePickerWebContents(event.sender)) return;
+		if (pick && keepEditing) {
+			editingSelection = true;
+			editingSender = event.sender;
+		}
+		if (resolvePendingPick) finishPick(pick);
+		else if (pick && editingSelection) return applyPick(pick);
 	});
 
 	ipcMain.handle("get-capture-picker-context", async (event, displayId: unknown) => {

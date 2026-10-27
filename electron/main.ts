@@ -1,5 +1,6 @@
 import { stopWindowsGeometryQueries } from "./ipc/windowsWindowControl";
 import { clearSelectedSourceHighlight } from "./ipc/register/sources";
+import { activateTrayClick, shouldUseTray } from "./trayBehavior";
 import { createRecordingSafetyController } from "./recordingSafety";
 import { stopNativeCursorMonitor } from "./ipc/cursor/monitor";
 import { stopInteractionCapture } from "./ipc/cursor/interaction";
@@ -67,6 +68,7 @@ import {
 	beginHudCaptureProtection,
 	reassertHudOverlayMousePassthrough as reassertHudOverlayMouseState,
 	setHudOverlayRecordingActive,
+	setHudRecordingPreparationActive,
 	showUpdateToastWindow,
 } from "./windows";
 
@@ -287,18 +289,9 @@ function getRecordingTrayIcon() {
 }
 
 function showHudOverlayFromTray() {
-	const updateToast = getUpdateToastWindow();
-	if (updateToast?.isVisible()) {
-		updateToast.show();
-		updateToast.moveTop();
-		updateToast.focus();
-		return true;
-	}
-
-	const hud = getHudOverlayWindow();
-	if (!hud) {
-		return false;
-	}
+	setHudRecordingPreparationActive(true);
+	const hud = getHudOverlayWindow() ?? createHudOverlayWindow();
+	getExistingEditorWindow()?.hide();
 
 	if (hud.isMinimized()) {
 		hud.restore();
@@ -546,22 +539,10 @@ function setupApplicationMenu() {
 	Menu.setApplicationMenu(menu);
 }
 
-function isPrimaryTrayClick(event: unknown) {
-	const button =
-		event && typeof event === "object" && "button" in event
-			? (event as { button?: number | string }).button
-			: undefined;
-	return button === undefined || button === 0 || button === "left";
-}
-
 function createTray() {
 	tray = new Tray(getDefaultTrayIcon());
 	tray.on("click", (event) => {
-		if (process.platform === "win32" && !isPrimaryTrayClick(event)) {
-			return;
-		}
-
-		focusOrCreateMainWindow();
+		activateTrayClick(process.platform, event, showHudOverlayFromTray, focusOrCreateMainWindow);
 	});
 
 	if (process.platform === "win32") {
@@ -576,12 +557,6 @@ function createTray() {
 	}
 
 	tray.on("double-click", () => focusOrCreateMainWindow());
-}
-
-function shouldUseTray() {
-	// macOS and Windows expose Zenvue through their Dock/taskbar. Keep the
-	// tray entry only on Linux, where it remains the primary app entry point.
-	return process.platform === "linux";
 }
 
 function getPublicAssetPath(filename: string) {
@@ -755,11 +730,18 @@ function updateTrayMenu(recording: boolean = false) {
 			]
 		: [
 				{
-					label: "打开",
+					label: "显示录制浮窗",
 					click: () => {
 						if (!showHudOverlayFromTray()) {
 							focusOrCreateMainWindow();
 						}
+					},
+				},
+				{
+					label: "打开主页",
+					click: () => {
+						setHudRecordingPreparationActive(false);
+						createEditorWindowWrapper();
 					},
 				},
 				{
@@ -1035,7 +1017,7 @@ app.whenReady().then(async () => {
 		await app.dock.show();
 	}
 	syncDockIcon();
-	if (shouldUseTray()) {
+	if (shouldUseTray(process.platform)) {
 		createTray();
 		updateTrayMenu();
 	}
@@ -1062,9 +1044,9 @@ app.whenReady().then(async () => {
 		() => sourceSelectorWindow,
 		(recording: boolean, sourceName: string) => {
 			selectedSourceName = sourceName;
-			recordingSafety.setRecording(recording);
 			setHudOverlayRecordingActive(recording);
-			if (shouldUseTray()) {
+			recordingSafety.setRecording(recording);
+			if (shouldUseTray(process.platform)) {
 				if (!tray) createTray();
 				updateTrayMenu(recording);
 			}

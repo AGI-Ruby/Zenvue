@@ -39,8 +39,9 @@ async function openPicker(page: Page, allowArea = true, previousArea = false) {
 					windows: pickerWindows,
 					cursor: null,
 				}),
-				completeCapturePick: async (pick: unknown) => {
+				completeCapturePick: async (pick: unknown, keepEditing?: boolean) => {
 					document.documentElement.dataset.pick = JSON.stringify(pick);
+					document.documentElement.dataset.keepEditing = String(keepEditing);
 				},
 				capturePickerReady: () => {
 					document.documentElement.dataset.pickerReady = "true";
@@ -89,8 +90,7 @@ test("a drag draws an area", async ({ page }) => {
 	await page.mouse.move(700, 450, { steps: 8 });
 	await page.mouse.up();
 	await expect(page.getByText("Area · 400 × 250")).toBeVisible();
-	expect(await pick(page)).toBeUndefined();
-	await page.keyboard.press("Enter");
+	expect(await pick(page)).toMatchObject({ kind: "area", width: 400, height: 250 });
 
 	expect(await pick(page)).toMatchObject({
 		kind: "area",
@@ -103,6 +103,17 @@ test("a drag draws an area", async ({ page }) => {
 
 test("Escape cancels", async ({ page }) => {
 	await openPicker(page);
+	await page.keyboard.press("Escape");
+	expect(await pick(page)).toBeNull();
+});
+
+test("clicking a window hands off to the confirmed yellow overlay and can still be canceled", async ({
+	page,
+}) => {
+	await openPicker(page);
+	await page.mouse.click(600, 300);
+	await expect(page.locator("html")).toHaveAttribute("data-keep-editing", "true");
+	await expect(page.locator("[data-selection-phase=confirmed]")).toBeVisible();
 	await page.keyboard.press("Escape");
 	expect(await pick(page)).toBeNull();
 });
@@ -155,12 +166,12 @@ for (const { selected, trigger } of [
 			selected,
 		);
 		await page.goto("/?windowType=hud-overlay");
-		const control = page.getByRole("button", { name: "Choose recording source" });
+		const control = page.getByRole("button", { name: "框选录屏区域或选择窗口（增强版）" });
 		await expect(control).toBeEnabled();
 		if (selected) {
 			await expect(control).toContainText("Existing screen");
 		} else {
-			await expect(control).toHaveText("Pick screen");
+			await expect(control).toHaveText("框选区域 / 窗口");
 		}
 		await expect(page.locator("html")).not.toHaveAttribute("data-picker-calls");
 		await (trigger === "source"
@@ -194,13 +205,13 @@ test("a newer selected-source event wins over the startup response", async ({ pa
 	});
 	await page.goto("/?windowType=hud-overlay");
 	await expect(page.locator("html")).toHaveAttribute("data-source-resolved", "true");
-	await expect(page.getByRole("button", { name: "Choose recording source" })).toContainText(
-		"Newer window",
-	);
+	await expect(
+		page.getByRole("button", { name: "框选录屏区域或选择窗口（增强版）" }),
+	).toContainText("Newer window");
 	await expect(page.locator("html")).not.toHaveAttribute("data-picker-calls");
 });
 
-test("areas can be moved and resized before Enter confirms them", async ({ page }) => {
+test("areas are selected immediately and can then be moved and resized", async ({ page }) => {
 	await openPicker(page);
 	await page.mouse.move(300, 200);
 	await page.mouse.down();
@@ -211,7 +222,7 @@ test("areas can be moved and resized before Enter confirms them", async ({ page 
 	await page.mouse.down();
 	await page.mouse.move(450, 350, { steps: 5 });
 	await page.mouse.up();
-	expect(await pick(page)).toBeUndefined();
+	expect(await pick(page)).toMatchObject({ kind: "area", x: 350, y: 250 });
 	const corner = page.locator('[data-area-handle="se"]');
 	const bounds = await corner.boundingBox();
 	if (!bounds) throw new Error("Missing area resize handle");
@@ -289,7 +300,7 @@ test("HUD reports a failed pick and keeps cancellation silent", async ({ page })
 		});
 	});
 	await page.goto("/?windowType=hud-overlay");
-	const source = page.getByRole("button", { name: "Choose recording source" });
+	const source = page.getByRole("button", { name: "框选录屏区域或选择窗口（增强版）" });
 	await source.click();
 	await expect(
 		page.getByText("That window or screen is no longer available.", { exact: true }),
@@ -319,16 +330,16 @@ test("unselected source reads Pick screen once and Record stays disabled while p
 		});
 	});
 	await page.goto("/?windowType=hud-overlay");
-	const source = page.getByRole("button", { name: "Choose recording source" });
+	const source = page.getByRole("button", { name: "框选录屏区域或选择窗口（增强版）" });
 	await expect(source).toBeEnabled();
-	await expect(source).toHaveText("Pick screen");
+	await expect(source).toHaveText("框选区域 / 窗口");
 	await expect(page.locator("html")).not.toHaveAttribute("data-picker-pending");
 	await source.click();
 	await expect(page.locator("html")).toHaveAttribute("data-picker-pending", "true");
 	await expect(page.getByRole("button", { name: "Record", exact: true })).toBeDisabled();
 	await page.evaluate(() => (window as unknown as { finishPicker: () => void }).finishPicker());
 	await expect(page.getByRole("button", { name: "Record", exact: true })).toBeEnabled();
-	await expect(source).toHaveText("Pick screen");
+	await expect(source).toHaveText("框选区域 / 窗口");
 });
 
 test("changing source cancels countdown and discards native warm-up before opening the picker", async ({
@@ -377,7 +388,7 @@ test("changing source cancels countdown and discards native warm-up before openi
 	await page.goto("/?windowType=hud-overlay");
 	await page.getByRole("button", { name: "Record", exact: true }).click();
 	await expect(page.locator("html")).toHaveAttribute("data-countdown-started", "true");
-	const source = page.getByRole("button", { name: "Choose recording source" });
+	const source = page.getByRole("button", { name: "框选录屏区域或选择窗口（增强版）" });
 	await expect(source).toBeEnabled();
 	await source.click();
 	await expect(page.locator("html")).toHaveAttribute(
@@ -401,7 +412,9 @@ test("recording and pause expose no interactive source picker", async ({ page })
 		};
 	});
 	await page.goto("/?windowType=hud-overlay");
-	await expect(page.getByRole("button", { name: "Choose recording source" })).toBeEnabled();
+	await expect(
+		page.getByRole("button", { name: "框选录屏区域或选择窗口（增强版）" }),
+	).toBeEnabled();
 	for (const paused of [false, true]) {
 		await page.evaluate(
 			(paused) =>
@@ -411,7 +424,7 @@ test("recording and pause expose no interactive source picker", async ({ page })
 			paused,
 		);
 		await expect(
-			page.getByRole("button", { name: "Choose recording source" }),
+			page.getByRole("button", { name: "框选录屏区域或选择窗口（增强版）" }),
 		).not.toBeVisible();
 		await expect(page.locator("html")).not.toHaveAttribute("data-picker-opened");
 	}
@@ -444,7 +457,7 @@ test("changing source also cancels countdown on the browser capture path", async
 	await page.goto("/?windowType=hud-overlay");
 	await page.getByRole("button", { name: "Record", exact: true }).click();
 	await expect(page.locator("html")).toHaveAttribute("data-countdown-started", "true");
-	await page.getByRole("button", { name: "Choose recording source" }).click();
+	await page.getByRole("button", { name: "框选录屏区域或选择窗口（增强版）" }).click();
 	await expect(page.locator("html")).toHaveAttribute("data-picked-after-cancel", "true");
 	await expect(page.getByRole("button", { name: "Record", exact: true })).toBeEnabled();
 });
@@ -478,7 +491,7 @@ for (const destination of ["window", "screen"] as const) {
 			await change.click();
 		}
 		await expect(page.locator("[data-area-handle]")).toHaveCount(0);
-		expect(await pick(page)).toBeUndefined();
+		expect(await pick(page)).toMatchObject({ kind: "area" });
 		const point = destination === "window" ? { x: 600, y: 300 } : { x: 1380, y: 60 };
 		await page.mouse.move(point.x, point.y);
 		await expect(
@@ -492,3 +505,15 @@ for (const destination of ["window", "screen"] as const) {
 		expect(await pick(page)).toMatchObject({ kind: destination, displayId: 1, record: false });
 	});
 }
+
+test("full-screen selection hands off to the confirmed overlay without a blue selection mask", async ({
+	page,
+}) => {
+	await openPicker(page);
+	await page.mouse.move(1380, 60);
+	await page.mouse.click(1380, 60);
+	await expect(page.locator("[data-selection-phase=confirmed]")).toBeVisible();
+	await expect(page.getByText("Entire screen · 1440 × 1000")).toBeVisible();
+	await page.keyboard.press("Escape");
+	expect(await pick(page)).toBeNull();
+});

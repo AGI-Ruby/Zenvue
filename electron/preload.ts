@@ -519,7 +519,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.on("recording-permissions-requested", listener);
 		return () => ipcRenderer.removeListener("recording-permissions-requested", listener);
 	},
-	showRecordingHud: () => ipcRenderer.invoke("show-recording-hud"),
+	showRecordingHud: (hideHome = false) => ipcRenderer.invoke("show-recording-hud", hideHome),
 	createProjectFile: (data: unknown, thumbnail?: string | null) =>
 		ipcRenderer.invoke("create-project-file", data, thumbnail),
 	renameLibraryProject: (path: string, name: string) =>
@@ -541,8 +541,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	pickCaptureTarget: () => {
 		return ipcRenderer.invoke("pick-capture-target");
 	},
-	completeCapturePick: (pick: CapturePick | null) => {
-		return ipcRenderer.invoke("complete-capture-pick", pick);
+	completeCapturePick: (pick: CapturePick | null, keepEditing = false) => {
+		return ipcRenderer.invoke("complete-capture-pick", pick, keepEditing);
 	},
 	getCapturePickerContext: (displayId: number) => {
 		return ipcRenderer.invoke("get-capture-picker-context", displayId);
