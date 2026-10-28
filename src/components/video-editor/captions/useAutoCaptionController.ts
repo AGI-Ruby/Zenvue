@@ -65,6 +65,7 @@ export function useAutoCaptionController({
 	activeSourceRef.current = { videoSourcePath, videoPath };
 
 	useEffect(() => {
+		let cancelled = false;
 		const unsubscribe = window.electronAPI.onWhisperSmallModelDownloadProgress((state) => {
 			setWhisperModelDownloadStatus(state.status);
 			setWhisperModelDownloadProgress(state.progress);
@@ -78,22 +79,30 @@ export function useAutoCaptionController({
 			}
 		});
 
-		void window.electronAPI.getWhisperSmallModelStatus().then((result) => {
-			if (!result.success) return;
-			if (result.exists && result.path) {
-				setDownloadedWhisperModelPath(result.path);
-				setWhisperModelPath((current) => current ?? result.path ?? null);
-				setWhisperModelDownloadStatus("downloaded");
-				setWhisperModelDownloadProgress(100);
-			} else {
-				setDownloadedWhisperModelPath(null);
-				setWhisperModelDownloadStatus("idle");
-				setWhisperModelDownloadProgress(0);
-			}
-		});
+		void window.electronAPI
+			.getWhisperSmallModelStatus(whisperModelPath ?? undefined)
+			.then((result) => {
+				if (cancelled) return;
+				if (!result.success) return;
+				if (result.exists && result.path) {
+					setDownloadedWhisperModelPath(result.managedPath ?? null);
+					setWhisperModelPath(result.path);
+					setWhisperModelDownloadStatus("downloaded");
+					setWhisperModelDownloadProgress(100);
+				} else {
+					setDownloadedWhisperModelPath(null);
+					setWhisperModelPath(null);
+					setWhisperModelDownloadStatus("idle");
+					setWhisperModelDownloadProgress(0);
+				}
+			});
 
-		return () => unsubscribe?.();
+		return () => {
+			cancelled = true;
+			unsubscribe?.();
+		};
 	}, [
+		whisperModelPath,
 		setDownloadedWhisperModelPath,
 		setWhisperModelDownloadProgress,
 		setWhisperModelDownloadStatus,
@@ -118,8 +127,10 @@ export function useAutoCaptionController({
 			return;
 		}
 		if (result.path) {
-			setDownloadedWhisperModelPath(result.path);
+			const status = await window.electronAPI.getWhisperSmallModelStatus(result.path);
+			setDownloadedWhisperModelPath(status.managedPath ?? null);
 			setWhisperModelPath(result.path);
+			setWhisperModelDownloadStatus("downloaded");
 		}
 	}, [
 		setDownloadedWhisperModelPath,
@@ -131,7 +142,10 @@ export function useAutoCaptionController({
 
 	const handlePickWhisperModel = useCallback(async () => {
 		const result = await window.electronAPI.openWhisperModelPicker();
-		if (!result.success || !result.path) return;
+		if (!result.success || !result.path) {
+			if (result.error) toast.error(result.error);
+			return;
+		}
 		setWhisperModelPath(result.path);
 		toast.success("Whisper model selected");
 	}, [setWhisperModelPath]);

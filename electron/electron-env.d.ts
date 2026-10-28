@@ -717,7 +717,8 @@ interface Window {
 			canceled?: boolean;
 			error?: string;
 		}>;
-		getWhisperSmallModelStatus: () => Promise<{
+		getWhisperSmallModelStatus: (preferredPath?: string) => Promise<{
+			managedPath?: string | null;
 			success: boolean;
 			exists: boolean;
 			path?: string | null;

@@ -542,6 +542,7 @@ interface SettingsPanelProps {
 	autoCaptionSettings?: AutoCaptionSettings;
 	whisperExecutablePath?: string | null;
 	whisperModelPath?: string | null;
+	whisperModelIsManaged?: boolean;
 	whisperModelDownloadStatus?: "idle" | "downloading" | "downloaded" | "error";
 	whisperModelDownloadProgress?: number;
 	isGeneratingCaptions?: boolean;
@@ -987,6 +988,7 @@ export function SettingsPanel({
 	autoCaptions = [],
 	autoCaptionSettings = DEFAULT_AUTO_CAPTION_SETTINGS,
 	whisperModelPath,
+	whisperModelIsManaged = false,
 	whisperModelDownloadStatus = "idle",
 	whisperModelDownloadProgress = 0,
 	isGeneratingCaptions = false,
@@ -2071,6 +2073,14 @@ export function SettingsPanel({
 						</SelectContent>
 					</Select>
 				</div>
+				<div
+					className="text-xs text-muted-foreground break-all"
+					title={whisperModelPath ?? undefined}
+				>
+					{whisperModelPath
+						? `正在使用：${whisperModelPath}`
+						: "优先检测本地 GGML 模型；未找到时从国内镜像下载 Whisper Small（约 488 MB）。"}
+				</div>
 				<div className="flex flex-wrap items-center gap-2">
 					<div className="grid w-full grid-cols-1 gap-2">
 						{whisperModelDownloadStatus === "downloading" ? (
@@ -2082,10 +2092,16 @@ export function SettingsPanel({
 							<Button
 								type="button"
 								variant="outline"
-								onClick={onDeleteWhisperSmallModel}
+								onClick={
+									whisperModelIsManaged
+										? onDeleteWhisperSmallModel
+										: onPickWhisperModel
+								}
 								className="h-9 w-full px-4 text-sm"
 							>
-								{tSettings("captions.deleteModel", "删除模型")}
+								{whisperModelIsManaged
+									? tSettings("captions.deleteModel", "删除模型")
+									: tSettings("captions.changeLocalModel", "更换本地模型")}
 							</Button>
 						) : (
 							<Button

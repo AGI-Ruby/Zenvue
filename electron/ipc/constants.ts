@@ -15,7 +15,9 @@ export const AUTO_RECORDING_PREFIX = "recording-";
 export const ALLOW_RECORDLY_WINDOW_CAPTURE = Boolean(process.env["VITE_DEV_SERVER_URL"]);
 export const RECORDING_SESSION_MANIFEST_SUFFIX = ".recordly-session.json";
 export const WHISPER_MODEL_DOWNLOAD_URL =
-	"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin";
+	"https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/ggml-small.bin";
+export const WHISPER_SMALL_MODEL_SHA256 =
+	"1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b";
 export const WHISPER_MODEL_DIR = path.join(USER_DATA_PATH, "whisper");
 export const WHISPER_SMALL_MODEL_PATH = path.join(WHISPER_MODEL_DIR, "ggml-small.bin");
 export const COMPANION_AUDIO_LAYOUTS = [

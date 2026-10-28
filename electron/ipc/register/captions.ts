@@ -1,6 +1,7 @@
 import path from "node:path";
 import { dialog, ipcMain } from "electron";
 import { generateAutoCaptionsFromVideo } from "../captions/generate";
+import { isWhisperModel } from "../captions/localModels";
 import {
 	deleteWhisperSmallModel,
 	downloadWhisperSmallModel,
@@ -153,6 +154,13 @@ export function registerCaptionHandlers() {
 				return { success: false, canceled: true };
 			}
 
+			if (!(await isWhisperModel(result.filePaths[0]))) {
+				return {
+					success: false,
+					error: "请选择兼容 whisper.cpp 的 GGML .bin 模型；不支持 .pt 或 Faster-Whisper 模型。",
+				};
+			}
+
 			approveUserPath(result.filePaths[0]);
 			return { success: true, path: result.filePaths[0] };
 		} catch (error) {
@@ -161,9 +169,11 @@ export function registerCaptionHandlers() {
 		}
 	});
 
-	ipcMain.handle("get-whisper-small-model-status", async () => {
+	ipcMain.handle("get-whisper-small-model-status", async (_, preferredPath?: string) => {
 		try {
-			return await getWhisperSmallModelStatus();
+			return await getWhisperSmallModelStatus(
+				typeof preferredPath === "string" ? preferredPath : undefined,
+			);
 		} catch (error) {
 			return { success: false, exists: false, path: null, error: String(error) };
 		}

@@ -371,6 +371,7 @@ export default function VideoEditor() {
 		setAspectRatio,
 		whisperExecutablePath,
 		whisperModelPath,
+		downloadedWhisperModelPath,
 		whisperModelDownloadStatus,
 		whisperModelDownloadProgress,
 		isGeneratingCaptions,

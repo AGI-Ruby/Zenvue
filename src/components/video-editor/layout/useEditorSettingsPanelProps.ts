@@ -30,6 +30,7 @@ type Input = {
 	setAspectRatio: Dispatch<SetStateAction<AspectRatio>>;
 	whisperExecutablePath: string | null;
 	whisperModelPath: string | null;
+	downloadedWhisperModelPath: string | null;
 	whisperModelDownloadStatus: "idle" | "downloading" | "downloaded" | "error";
 	whisperModelDownloadProgress: number;
 	isGeneratingCaptions: boolean;
@@ -58,6 +59,7 @@ export function useEditorSettingsPanelProps(input: Input): ComponentProps<typeof
 		setAspectRatio,
 		whisperExecutablePath,
 		whisperModelPath,
+		downloadedWhisperModelPath,
 		whisperModelDownloadStatus,
 		whisperModelDownloadProgress,
 		isGeneratingCaptions,
@@ -195,6 +197,9 @@ export function useEditorSettingsPanelProps(input: Input): ComponentProps<typeof
 		whisperModelDownloadProgress,
 		isGeneratingCaptions,
 		onAutoCaptionSettingsChange: timeline.setAutoCaptionSettings,
+		whisperModelIsManaged: Boolean(
+			whisperModelPath && whisperModelPath === downloadedWhisperModelPath,
+		),
 		onPickWhisperExecutable: autoCaptionController.handlePickWhisperExecutable,
 		onPickWhisperModel: autoCaptionController.handlePickWhisperModel,
 		onGenerateAutoCaptions: autoCaptionController.handleGenerateAutoCaptions,
